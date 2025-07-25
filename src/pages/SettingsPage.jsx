@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import SafeIcon from '../common/SafeIcon';
 import * as FiIcons from 'react-icons/fi';
 
-const { FiUser, FiSettings, FiMic, FiGlobe, FiBell, FiSave, FiCheck } = FiIcons;
+const { FiUser, FiSettings, FiMic, FiGlobe, FiBell, FiSave, FiCheck, FiHardDrive } = FiIcons;
 
 const SettingsPage = () => {
   const [settings, setSettings] = useState({
@@ -13,9 +13,11 @@ const SettingsPage = () => {
     notifications: true,
     theme: 'light',
     apiKey: '',
-    maxFileSize: '500'
+    maxFileSize: '5120', // 5GB in MB
+    enableLargeFileSupport: true,
+    memoryOptimization: true,
+    chunkProcessing: true
   });
-
   const [saved, setSaved] = useState(false);
 
   // Load settings from localStorage on component mount
@@ -32,10 +34,7 @@ const SettingsPage = () => {
   }, []);
 
   const handleSettingChange = (key, value) => {
-    setSettings(prev => ({
-      ...prev,
-      [key]: value
-    }));
+    setSettings(prev => ({ ...prev, [key]: value }));
   };
 
   const handleSave = () => {
@@ -60,6 +59,14 @@ const SettingsPage = () => {
     { code: 'ru-RU', name: 'Russian' },
     { code: 'pt-BR', name: 'Portuguese (Brazil)' },
     { code: 'it-IT', name: 'Italian' }
+  ];
+
+  const maxFileSizeOptions = [
+    { value: '500', label: '500 MB' },
+    { value: '1024', label: '1 GB' },
+    { value: '2048', label: '2 GB' },
+    { value: '5120', label: '5 GB' },
+    { value: '10240', label: '10 GB (Experimental)' }
   ];
 
   return (
@@ -136,23 +143,6 @@ const SettingsPage = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Maximum File Size (MB)
-              </label>
-              <input
-                type="number"
-                value={settings.maxFileSize}
-                onChange={(e) => handleSettingChange('maxFileSize', e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                min="100"
-                max="2000"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Maximum allowed file size for uploads. Larger files may take longer to process.
-              </p>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Advanced Options
               </label>
               <div className="space-y-3">
@@ -166,7 +156,6 @@ const SettingsPage = () => {
                   <span className="text-sm text-gray-700">Speaker Diarization</span>
                   <span className="text-xs text-gray-500">(Identify different speakers)</span>
                 </label>
-                
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -176,7 +165,6 @@ const SettingsPage = () => {
                   />
                   <span className="text-sm text-gray-700">Auto-punctuation</span>
                 </label>
-                
                 <label className="flex items-center space-x-2">
                   <input
                     type="checkbox"
@@ -191,11 +179,111 @@ const SettingsPage = () => {
           </div>
         </motion.div>
 
-        {/* General Settings */}
+        {/* Large File Settings */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
+          className="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
+        >
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="p-2 bg-orange-100 rounded-lg">
+              <SafeIcon icon={FiHardDrive} className="w-5 h-5 text-orange-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">Large File Settings</h3>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Maximum File Size
+              </label>
+              <select
+                value={settings.maxFileSize}
+                onChange={(e) => handleSettingChange('maxFileSize', e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {maxFileSizeOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Maximum allowed file size for uploads. Larger files may take longer to process and require more memory.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium text-gray-700">Enable Large File Support</h4>
+                <p className="text-xs text-gray-500">Optimizations for files over 1GB</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.enableLargeFileSupport}
+                  onChange={(e) => handleSettingChange('enableLargeFileSupport', e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium text-gray-700">Memory Optimization</h4>
+                <p className="text-xs text-gray-500">Reduce memory usage for large files</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.memoryOptimization}
+                  onChange={(e) => handleSettingChange('memoryOptimization', e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-medium text-gray-700">Chunk Processing</h4>
+                <p className="text-xs text-gray-500">Process large files in smaller chunks</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.chunkProcessing}
+                  onChange={(e) => handleSettingChange('chunkProcessing', e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+              </label>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="flex items-start gap-2">
+                <SafeIcon icon={FiHardDrive} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-amber-800">
+                  <p className="font-medium mb-1">Large File Processing Notes</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>Files over 2GB may take 15-30 minutes to process</li>
+                    <li>Ensure stable internet connection for large uploads</li>
+                    <li>Close other browser tabs to free up memory</li>
+                    <li>Consider compressing videos before upload if possible</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* General Settings */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
           className="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
         >
           <div className="flex items-center space-x-3 mb-6">
@@ -252,7 +340,7 @@ const SettingsPage = () => {
                 <option value="auto">Auto (System Default)</option>
               </select>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Default Export Format
@@ -276,10 +364,10 @@ const SettingsPage = () => {
 
         {/* API Settings */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-2"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
         >
           <div className="flex items-center space-x-3 mb-6">
             <div className="p-2 bg-purple-100 rounded-lg">
@@ -306,7 +394,7 @@ const SettingsPage = () => {
                 Your API key is encrypted and securely stored locally. It's used to authenticate with transcription services.
               </p>
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 API Provider
@@ -334,7 +422,7 @@ const SettingsPage = () => {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
+        transition={{ duration: 0.5, delay: 0.5 }}
         className="flex justify-end"
       >
         <motion.button
@@ -342,9 +430,7 @@ const SettingsPage = () => {
           whileTap={{ scale: 0.95 }}
           onClick={handleSave}
           className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-semibold transition-all ${
-            saved
-              ? 'bg-green-500 text-white'
-              : 'bg-primary-500 text-white hover:bg-primary-600'
+            saved ? 'bg-green-500 text-white' : 'bg-primary-500 text-white hover:bg-primary-600'
           }`}
         >
           <SafeIcon icon={saved ? FiCheck : FiSave} className="w-5 h-5" />

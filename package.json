@@ -1,5 +1,5 @@
 {
-  "name": "video-transcription-app",
+  "name": "bpai-vidiscribe",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "npm run lint && vite build",
     "lint": "eslint .",
-    "lint:error": "eslint . --quiet", 
+    "lint:error": "eslint . --quiet",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -17,8 +17,10 @@
     "@supabase/supabase-js": "^2.39.0",
     "axios": "^1.6.7",
     "date-fns": "4.1.0",
+    "docx": "^8.5.0",
     "echarts": "^5.5.0",
     "echarts-for-react": "^3.0.2",
+    "file-saver": "^2.0.5",
     "framer-motion": "^11.0.8",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
