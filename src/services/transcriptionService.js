@@ -23,23 +23,25 @@ const ensureFFmpegLoaded=async ()=> {
  * @param {Function} progressCallback - Callback for progress updates
  * @returns {Blob} - Audio file blob (optimized format)
  */
-export const extractAudioFromVideo=async (videoFile,progressCallback=null)=> {
+export const extractAudioFromVideo=async (videoFile, progressCallback)=> {
   try {
     const startTime=Date.now();
     
-    if (progressCallback) {
-      progressCallback(5,'Initializing optimized audio extraction...');
-    }
+    // Ensure progressCallback is a function
+    const updateProgress = typeof progressCallback === 'function' ? 
+      progressCallback : () => {};
+    
+    updateProgress(5, 'Initializing optimized audio extraction...');
     
     // Use the optimized audio extraction from compressionService
-    const audioBlob=await extractAudioOnly(videoFile,progressCallback);
+    const audioBlob = await extractAudioOnly(videoFile, updateProgress);
     
     const processingTime=(Date.now() - startTime) / 1000;
     console.log(`Total audio extraction time: ${processingTime.toFixed(2)} seconds`);
     
     return audioBlob;
   } catch (error) {
-    console.error('Error extracting audio:',error);
+    console.error('Error extracting audio:', error);
     
     // Provide more specific error messages for large files
     if (error.message.includes('out of memory') || error.message.includes('memory')) {
@@ -56,27 +58,29 @@ export const extractAudioFromVideo=async (videoFile,progressCallback=null)=> {
  * @param {Object} options - Transcription options
  * @returns {Array} - Array of transcription segments
  */
-export const transcribeAudio=async (audioBlob,options={})=> {
+export const transcribeAudio=async (audioBlob, options={})=> {
   try {
-    const audioSizeMB=audioBlob.size / (1024 * 1024);
-    const isLargeAudio=audioSizeMB > 25; // Audio files over 25MB are considered large
+    const audioSizeMB = audioBlob.size / (1024 * 1024);
+    const isLargeAudio = audioSizeMB > 25; // Audio files over 25MB are considered large
     
-    if (options.progressCallback) {
-      options.progressCallback(10,'Preparing transcription...');
-    }
+    // Ensure progressCallback is a function
+    const updateProgress = typeof options.progressCallback === 'function' ? 
+      options.progressCallback : () => {};
+    
+    updateProgress(10, 'Preparing transcription...');
     
     // For large audio files, implement chunking
-    if (isLargeAudio && options.progressCallback) {
-      options.progressCallback(20,'Processing large audio file with chunking...');
-      return await transcribeAudioInChunks(audioBlob,options);
+    if (isLargeAudio) {
+      updateProgress(20, 'Processing large audio file with chunking...');
+      return await transcribeAudioInChunks(audioBlob, options);
     }
     
     // For smaller files, use direct processing
-    return await transcribeAudioDirect(audioBlob,options);
+    return await transcribeAudioDirect(audioBlob, options);
   } catch (error) {
-    console.error('Transcription error:',error);
+    console.error('Transcription error:', error);
     
-    if (error.code==='ECONNABORTED' || error.message.includes('timeout')) {
+    if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
       throw new Error('Transcription timed out. Large files may require longer processing time.');
     }
     
@@ -87,22 +91,25 @@ export const transcribeAudio=async (audioBlob,options={})=> {
 /** 
  * OPTIMIZED: Direct transcription for smaller audio files 
  */
-async function transcribeAudioDirect(audioBlob,options) {
-  const startTime=Date.now();
-  const progressCallback = options.progressCallback || (() => {});
+async function transcribeAudioDirect(audioBlob, options) {
+  const startTime = Date.now();
   
-  progressCallback(30,'Sending audio for transcription...');
+  // Ensure progressCallback is a function
+  const updateProgress = typeof options.progressCallback === 'function' ? 
+    options.progressCallback : () => {};
+  
+  updateProgress(30, 'Sending audio for transcription...');
   
   // Create a form data object to send the audio file
-  const formData=new FormData();
-  formData.append('file',audioBlob,'audio.webm');
-  formData.append('language',options.language || 'en-US');
-  formData.append('model',options.model || 'whisper-1');
+  const formData = new FormData();
+  formData.append('file', audioBlob, 'audio.webm');
+  formData.append('language', options.language || 'en-US');
+  formData.append('model', options.model || 'whisper-1');
   
   // For demo purposes, we'll use a simulated response
   // In production, you would use a real API call like:
   /*
-  const response=await axios.post(
+  const response = await axios.post(
     'https://api.openai.com/v1/audio/transcriptions',
     formData,
     {
@@ -116,23 +123,23 @@ async function transcribeAudioDirect(audioBlob,options) {
   */
   
   // Simulate realistic processing time based on audio size
-  const audioSizeMB=audioBlob.size / (1024 * 1024);
-  const baseProcessingTime=Math.min(audioSizeMB * 50, 3000); // Max 3 seconds for demo
+  const audioSizeMB = audioBlob.size / (1024 * 1024);
+  const baseProcessingTime = Math.min(audioSizeMB * 50, 3000); // Max 3 seconds for demo
   
   // Progress simulation
-  const progressInterval=setInterval(()=> {
-    const elapsed=Date.now() - startTime;
-    const progress=Math.min((elapsed / baseProcessingTime) * 60, 60); // Up to 60%
-    progressCallback(30 + progress, 'Processing speech recognition...');
+  const progressInterval = setInterval(() => {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min((elapsed / baseProcessingTime) * 60, 60); // Up to 60%
+    updateProgress(30 + progress, 'Processing speech recognition...');
   }, 200);
   
-  await new Promise(resolve=> setTimeout(resolve, baseProcessingTime));
+  await new Promise(resolve => setTimeout(resolve, baseProcessingTime));
   clearInterval(progressInterval);
   
-  progressCallback(90, 'Finalizing transcription...');
+  updateProgress(90, 'Finalizing transcription...');
   
   // Generate optimized simulated transcription
-  const simulatedResponse=generateOptimizedTranscription(options.duration || 60);
+  const simulatedResponse = generateOptimizedTranscription(options.duration || 60);
   return simulatedResponse;
 }
 
@@ -140,32 +147,35 @@ async function transcribeAudioDirect(audioBlob,options) {
  * OPTIMIZED: Chunked transcription for large audio files 
  */
 async function transcribeAudioInChunks(audioBlob, options) {
-  const progressCallback = options.progressCallback || (() => {});
-  const chunkSize=20 * 1024 * 1024; // 20MB chunks
-  const chunks=[];
+  // Ensure progressCallback is a function
+  const updateProgress = typeof options.progressCallback === 'function' ? 
+    options.progressCallback : () => {};
+    
+  const chunkSize = 20 * 1024 * 1024; // 20MB chunks
+  const chunks = [];
   
   // Split audio into chunks (simplified for demo)
-  const totalChunks=Math.ceil(audioBlob.size / chunkSize);
-  progressCallback(25, `Processing ${totalChunks} audio chunks...`);
+  const totalChunks = Math.ceil(audioBlob.size / chunkSize);
+  updateProgress(25, `Processing ${totalChunks} audio chunks...`);
   
-  for (let i=0; i < totalChunks; i++) {
-    const start=i * chunkSize;
-    const end=Math.min(start + chunkSize, audioBlob.size);
-    const chunk=audioBlob.slice(start, end);
+  for (let i = 0; i < totalChunks; i++) {
+    const start = i * chunkSize;
+    const end = Math.min(start + chunkSize, audioBlob.size);
+    const chunk = audioBlob.slice(start, end);
     
-    const progress=(i / totalChunks) * 60; // Up to 60% for chunking
-    progressCallback(25 + progress, `Processing chunk ${i + 1} of ${totalChunks}...`);
+    const progress = (i / totalChunks) * 60; // Up to 60% for chunking
+    updateProgress(25 + progress, `Processing chunk ${i + 1} of ${totalChunks}...`);
     
     // Process each chunk (simulated)
-    const chunkDuration=(options.duration || 60) / totalChunks;
-    const chunkResult=generateOptimizedTranscription(chunkDuration, i * chunkDuration);
+    const chunkDuration = (options.duration || 60) / totalChunks;
+    const chunkResult = generateOptimizedTranscription(chunkDuration, i * chunkDuration);
     chunks.push(...chunkResult);
     
     // Small delay to prevent browser blocking
-    await new Promise(resolve=> setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
   
-  progressCallback(90, 'Combining chunk results...');
+  updateProgress(90, 'Combining chunk results...');
   
   return chunks;
 }
@@ -177,8 +187,8 @@ async function transcribeAudioInChunks(audioBlob, options) {
  * @returns {Array} - Array of transcription segments
  */
 function generateOptimizedTranscription(duration, startOffset=0) {
-  const segments=[];
-  const phrases=[
+  const segments = [];
+  const phrases = [
     "Welcome to our comprehensive video presentation.",
     "Today we'll be discussing the key features and capabilities of our new platform.",
     "Our application is designed to be user-friendly, intuitive, and scalable for enterprise use.",
@@ -206,28 +216,28 @@ function generateOptimizedTranscription(duration, startOffset=0) {
     "Thank you for watching this detailed presentation of our platform capabilities."
   ];
   
-  let currentTime=startOffset;
-  let segmentId=Math.floor(startOffset / 8) + 1;
+  let currentTime = startOffset;
+  let segmentId = Math.floor(startOffset / 8) + 1;
   
   // Create more realistic segment timing
-  const avgSegmentDuration=8; // 8 seconds average
-  const segmentCount=Math.ceil(duration / avgSegmentDuration);
+  const avgSegmentDuration = 8; // 8 seconds average
+  const segmentCount = Math.ceil(duration / avgSegmentDuration);
   
-  for (let i=0; i < segmentCount && currentTime < startOffset + duration; i++) {
+  for (let i = 0; i < segmentCount && currentTime < startOffset + duration; i++) {
     // Vary segment duration realistically (6-12 seconds)
-    const segmentDuration=Math.min(
+    const segmentDuration = Math.min(
       avgSegmentDuration + (Math.random() * 4 - 2), // ±2 seconds variation
       (startOffset + duration) - currentTime
     );
-    const endTime=currentTime + segmentDuration;
+    const endTime = currentTime + segmentDuration;
     
     // Select phrase with some variation
-    const phraseIndex=(segmentId - 1) % phrases.length;
-    let text=phrases[phraseIndex];
+    const phraseIndex = (segmentId - 1) % phrases.length;
+    let text = phrases[phraseIndex];
     
     // Occasionally combine phrases for more natural variation
     if (Math.random() > 0.8 && i < segmentCount - 1) {
-      text +=" " + phrases[(phraseIndex + 1) % phrases.length];
+      text += " " + phrases[(phraseIndex + 1) % phrases.length];
     }
     
     segments.push({
@@ -238,7 +248,7 @@ function generateOptimizedTranscription(duration, startOffset=0) {
       confidence: Math.random() * 0.15 + 0.85 // Confidence between 0.85 and 1.0
     });
     
-    currentTime=endTime;
+    currentTime = endTime;
   }
   
   return segments;
@@ -250,33 +260,45 @@ function generateOptimizedTranscription(duration, startOffset=0) {
  * @param {string} format - Export format (txt, srt, vtt)
  * @returns {string} - Formatted transcription text
  */
-export const formatTranscriptionForExport=(transcriptionData, format='txt')=> {
-  if (!transcriptionData || transcriptionData.length===0) {
+export const formatTranscriptionForExport = (transcriptionData, format = 'txt') => {
+  if (!transcriptionData || !Array.isArray(transcriptionData) || transcriptionData.length === 0) {
     return '';
   }
   
   switch (format.toLowerCase()) {
     case 'txt':
-      return transcriptionData.map(segment=> segment.text).join('\n\n');
+      return transcriptionData
+        .filter(segment => segment && segment.text)
+        .map(segment => segment.text)
+        .join('\n\n');
       
     case 'srt':
-      return transcriptionData.map((segment, index)=> {
-        const startTime=formatSrtTime(segment.startTime);
-        const endTime=formatSrtTime(segment.endTime);
-        return `${index + 1}\n${startTime} --> ${endTime}\n${segment.text}\n`;
-      }).join('\n');
+      return transcriptionData
+        .filter(segment => segment && segment.startTime !== undefined && segment.endTime !== undefined)
+        .map((segment, index) => {
+          const startTime = formatSrtTime(segment.startTime);
+          const endTime = formatSrtTime(segment.endTime);
+          return `${index + 1}\n${startTime} --> ${endTime}\n${segment.text}\n`;
+        })
+        .join('\n');
       
     case 'vtt':
-      let vtt='WEBVTT\n\n';
-      vtt +=transcriptionData.map((segment, index)=> {
-        const startTime=formatVttTime(segment.startTime);
-        const endTime=formatVttTime(segment.endTime);
-        return `${index + 1}\n${startTime} --> ${endTime}\n${segment.text}`;
-      }).join('\n\n');
+      let vtt = 'WEBVTT\n\n';
+      vtt += transcriptionData
+        .filter(segment => segment && segment.startTime !== undefined && segment.endTime !== undefined)
+        .map((segment, index) => {
+          const startTime = formatVttTime(segment.startTime);
+          const endTime = formatVttTime(segment.endTime);
+          return `${index + 1}\n${startTime} --> ${endTime}\n${segment.text}`;
+        })
+        .join('\n\n');
       return vtt;
       
     default:
-      return transcriptionData.map(segment=> segment.text).join('\n\n');
+      return transcriptionData
+        .filter(segment => segment && segment.text)
+        .map(segment => segment.text)
+        .join('\n\n');
   }
 };
 
@@ -287,18 +309,20 @@ export const formatTranscriptionForExport=(transcriptionData, format='txt')=> {
  * @param {Object} options - Additional options
  * @returns {Promise} - Promise with the saved transcription ID
  */
-export const saveTranscriptionToDatabase=async (videoFile, transcriptionData, options={})=> {
+export const saveTranscriptionToDatabase = async (videoFile, transcriptionData, options = {}) => {
   try {
-    if (!videoFile || !transcriptionData || transcriptionData.length===0) {
+    if (!videoFile || !transcriptionData || !Array.isArray(transcriptionData) || transcriptionData.length === 0) {
       throw new Error('Missing required data for saving transcription');
     }
     
-    const fileSizeGB=videoFile.size / (1024 * 1024 * 1024);
+    const fileSizeGB = videoFile.size / (1024 * 1024 * 1024);
     
-    const transcriptionMetadata={
+    const transcriptionMetadata = {
       title: options.title || videoFile.name.split('.')[0],
       file_name: videoFile.name,
-      duration: options.duration || transcriptionData.reduce((max, segment)=> Math.max(max, segment.endTime), 0),
+      duration: options.duration || transcriptionData.reduce((max, segment) => {
+        return segment && typeof segment.endTime === 'number' ? Math.max(max, segment.endTime) : max;
+      }, 0),
       language: options.language || 'en-US',
       file_size: videoFile.size,
       file_type: videoFile.type,
@@ -310,7 +334,7 @@ export const saveTranscriptionToDatabase=async (videoFile, transcriptionData, op
     };
     
     // Save to database using the transcriptionDbService
-    const transcriptionId=await saveTranscription(transcriptionMetadata, transcriptionData);
+    const transcriptionId = await saveTranscription(transcriptionMetadata, transcriptionData);
     return transcriptionId;
     
   } catch (error) {
@@ -321,20 +345,24 @@ export const saveTranscriptionToDatabase=async (videoFile, transcriptionData, op
 
 // Helper function to format time for SRT format
 function formatSrtTime(seconds) {
-  const hours=Math.floor(seconds / 3600);
-  const minutes=Math.floor((seconds % 3600) / 60);
-  const secs=Math.floor(seconds % 60);
-  const ms=Math.floor((seconds % 1) * 1000);
+  if (typeof seconds !== 'number') return '00:00:00,000';
+  
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 1000);
   
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')},${String(ms).padStart(3, '0')}`;
 }
 
 // Helper function to format time for VTT format
 function formatVttTime(seconds) {
-  const hours=Math.floor(seconds / 3600);
-  const minutes=Math.floor((seconds % 3600) / 60);
-  const secs=Math.floor(seconds % 60);
-  const ms=Math.floor((seconds % 1) * 1000);
+  if (typeof seconds !== 'number') return '00:00:00.000';
+  
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 1000);
   
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
 }
